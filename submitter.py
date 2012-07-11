@@ -7,7 +7,6 @@ import random
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
 # First, we make a dictionary of words used in the posts
-"""
 myFiles = Files([open("../trainPosts.json"), open("../testPosts.json")])
 
 dictionary = corpora.Dictionary(doc for doc in myFiles)
@@ -17,19 +16,16 @@ dictionary.filter_tokens(stop_ids + infreq_ids) # remove stop words and words th
 dictionary.compactify() # remove gaps in id sequence after words that were removed
 
 dictionary.save("dictionary.saved")
-"""
-dictionary = corpora.dictionary.Dictionary.load("dictionary.saved") 
+#dictionary = corpora.dictionary.Dictionary.load("dictionary.saved") 
 
 # Next, we train the LDA model with the blog posts, estimating the topics
-"""
 myCorp = Corp(myFiles, dictionary)
 lda = models.ldamodel.LdaModel(corpus=myCorp, id2word=dictionary, num_topics=100, update_every=1, chunksize=10000, passes=1)
 
 lda.save("lda.saved")
-"""
-lda = models.ldamodel.LdaModel.load("lda.saved") 
+#lda = models.ldamodel.LdaModel.load("lda.saved") 
 
-#myFiles.close_files()
+myFiles.close_files()
 
 # Now, we do some quick preliminary work to determine which blogs have which posts, and to map post_id's to a zero-based index, or vice versa
 
@@ -68,32 +64,29 @@ f.close()
 print "Done doing preliminary test data processing"
 
 # We build a lookup-index of test posts, for quick answers to questions about what test posts are similar to a given training post
-"""
+
 myFilesTest = Files([open("../testPosts.json")])
 myCorpTest = Corp(myFilesTest, dictionary)
 TestVecs = [vec for vec in lda[myCorpTest]]
 TestIndex = similarities.Similarity("./simDump/", TestVecs, num_features=100)
 TestIndex.num_best = 100
 myFilesTest.close_files()
-"""
 
-#cPickle.dump(TestVecs, open("TestVecs.saved", "w"))
-TestVecs = cPickle.load(open("TestVecs.saved", "r"))
+cPickle.dump(TestVecs, open("TestVecs.saved", "w"))
+#TestVecs = cPickle.load(open("TestVecs.saved", "r"))
 
-#TestIndex.save("TestIndex.saved")
-TestIndex = similarities.Similarity.load("TestIndex.saved")
+TestIndex.save("TestIndex.saved")
+#TestIndex = similarities.Similarity.load("TestIndex.saved")
 print "Done making the test lookup index"
 
 # We estimate the training topics, which we can hold in memory since they are sparsely coded in gensim
-"""
 myFilesTrain = Files([open("../trainPosts.json")])
 myCorpTrain = Corp(myFilesTrain, dictionary)
 TrainVecs = [vec for vec in lda[myCorpTrain]]
 myFilesTrain.close_files()
 
 cPickle.dump(TrainVecs, open("TrainVecs.saved", "w"))
-"""
-TrainVecs = cPickle.load(open("TrainVecs.saved", "r"))
+#TrainVecs = cPickle.load(open("TrainVecs.saved", "r"))
 print "Done estimating the training topics"
 
 # Now we begin making submissions
@@ -143,7 +136,8 @@ for line in users:
         for (post_id, rho) in similar_posts_ids:
             if not posts.has_key(post_id):
                 posts[post_id] = 0
-            posts[post_id] += rho / float(sample_size) / float(sample_size)
+            posts[post_id] += rho / float(sample_size)
+            # dividing by the sample size ensures that the biggest additional score a post could get from this is 1.0
 
     # Now pick the top 100 blogs, (or less if that's the case)
     recommendedPosts = list(sorted(posts, key=posts.__getitem__, reverse=True))
