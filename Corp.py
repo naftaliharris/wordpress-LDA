@@ -28,6 +28,12 @@ def strip_tags(html):
 class Files():
     def __init__(self, files):
         self.files = files
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+        
     def __iter__(self): # Read only one line at a time from the text files, to be memory friendly
         for f in self.files:
             f.seek(0) # Reset the file pointer before a new iteration
@@ -45,19 +51,19 @@ class Files():
         for f in self.files:
             f.seek(0)
             for line in f:
-                n = n + 1
+                n += 1
         return n
-    def close_files(self):
+    def close(self):
         for f in self.files:
             f.close()
 
 # A helper class, for use in gensim's LDA implementation
 class Corp():
-    def __init__(self, FilesObj, Dict):
-        self.FilesObj = FilesObj
-        self.Dict = Dict
+    def __init__(self, files, dic):
+        self.files = files
+        self.dic = dic
     def __iter__(self):
-        for doc in self.FilesObj:
-            yield self.Dict.doc2bow(doc)
+        for doc in self.files:
+            yield self.dic.doc2bow(doc)
     def __len__(self):
-        return len(self.FilesObj)
+        return len(self.files)
