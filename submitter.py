@@ -10,28 +10,25 @@ import random
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
 # First, we make a dictionary of words used in the posts
-myFiles = Files([open("../trainPosts.json"), open("../testPosts.json")])
+with Files([open("../trainPosts.json"), open("../testPosts.json")]) as myFiles:
+    try: 
+        dictionary = corpora.dictionary.Dictionary.load("dictionary.saved")
+    except:
+        dictionary = corpora.Dictionary(doc for doc in myFiles)
+        stop_ids = [dictionary.token2id[stopword] for stopword in stop_words if stopword in dictionary.token2id]
+        infreq_ids = [tokenid for tokenid, docfreq in dictionary.dfs.iteritems() if docfreq < 50]
+        dictionary.filter_tokens(stop_ids + infreq_ids) # remove stop words and words that appear infrequently
+        dictionary.compactify() # remove gaps in id sequence after words that were removed
 
-try: 
-    dictionary = corpora.dictionary.Dictionary.load("dictionary.saved")
-except:
-    dictionary = corpora.Dictionary(doc for doc in myFiles)
-    stop_ids = [dictionary.token2id[stopword] for stopword in stop_words if stopword in dictionary.token2id]
-    infreq_ids = [tokenid for tokenid, docfreq in dictionary.dfs.iteritems() if docfreq < 50]
-    dictionary.filter_tokens(stop_ids + infreq_ids) # remove stop words and words that appear infrequently
-    dictionary.compactify() # remove gaps in id sequence after words that were removed
+        dictionary.save("dictionary.saved")
 
-    dictionary.save("dictionary.saved")
+    # Next, we train the LDA model with the blog posts, estimating the topics
+    try:
+        lda = models.ldamodel.LdaModel.load("lda.saved") 
+    except:
+        lda = models.ldamodel.LdaModel(corpus=Corp(myFiles, dictionary), id2word=dictionary, num_topics=100, update_every=1, chunksize=10000, passes=1)
 
-# Next, we train the LDA model with the blog posts, estimating the topics
-try:
-    lda = models.ldamodel.LdaModel.load("lda.saved") 
-except:
-    lda = models.ldamodel.LdaModel(corpus=Corp(myFiles, dictionary), id2word=dictionary, num_topics=100, update_every=1, chunksize=10000, passes=1)
-
-    lda.save("lda.saved")
-
-myFiles.close_files()
+        lda.save("lda.saved")
 
 # Now, we do some quick preliminary work to determine which blogs have which posts, and to map post_id's to a zero-based index, or vice versa
 
@@ -67,13 +64,11 @@ try:
     testVecs = cPickle.load(open("TestVecs.saved", "r"))
     testIndex = similarities.Similarity.load("TestIndex.saved")
 except:
-    myFilesTest = Files([open("../testPosts.json")])
-    myCorpTest = Corp(myFilesTest, dictionary)
-    testVecs = [vec for vec in lda[myCorpTest]]
-    testIndex = similarities.Similarity("./simDump/", testVecs, num_features=100)
-    testIndex.num_best = 100
-    myFilesTest.close_files()
-
+    with Files([open("../testPosts.json")]) as myFilesTest:
+        myCorpTest = Corp(myFilesTest, dictionary)
+        testVecs = [vec for vec in lda[myCorpTest]]
+        testIndex = similarities.Similarity("./simDump/", testVecs, num_features=100)
+        testIndex.num_best = 100
     cPickle.dump(testVecs, open("TestVecs.saved", "w"))
     testIndex.save("TestIndex.saved")
 
@@ -83,11 +78,9 @@ logging.info("Done making the test lookup index")
 try:
     TrainVecs = cPickle.load(open("TrainVecs.saved", "r"))
 except:
-    myFilesTrain = Files([open("../trainPosts.json")])
-    myCorpTrain = Corp(myFilesTrain, dictionary)
-    trainVecs = [vec for vec in lda[myCorpTrain]]
-    myFilesTrain.close_files()
-
+    with Files([open("../trainPosts.json")]) as myFilesTrain:
+        myCorpTrain = Corp(myFilesTrain, dictionary)
+        trainVecs = [vec for vec in lda[myCorpTrain]]
     cPickle.dump(trainVecs, open("TrainVecs.saved", "w"))
 
 logging.info("Done estimating the training topics")
